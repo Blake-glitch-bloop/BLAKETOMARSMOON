@@ -16,7 +16,7 @@ The included GitHub Actions workflow publishes this static site to GitHub Pages 
 
 - Tap stars to collect five sparks of inspiration.
 - Drag rocket parts into place, or tap a part and then the rocket. The tap alternative also works with a keyboard.
-- Color the rocket outline with four crayons. Coloring stays inside the rocket, and its outlines stay visible. Your colored rocket appears at launch, on Mars, and at the ending, and stays when moving between pages. Start over clears the colors and keeps the outline; skipping the coloring page uses the original rocket.
+- Color the rocket outline with four colors. Use Crayon for freehand strokes, or Paint bucket to tap and fill an outlined part (nose, window, body, fins, or bottom band). Bucket fills use the rocket outline, so they work over existing crayon marks. Coloring stays inside the rocket, and its outlines stay visible. Your colored rocket appears at launch, on Mars, and at the ending, and stays when moving between pages. Start over clears the colors and keeps the outline; skipping the coloring page uses the original rocket.
 - Hold the launch button with a finger, mouse, Space, or Enter to fill the power meter.
 - Tap the flag to plant it on Mars.
 - Use the page arrows or dots to explore freely. Read again resets the adventure.

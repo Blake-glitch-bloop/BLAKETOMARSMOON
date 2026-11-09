@@ -156,7 +156,42 @@ function renderDraw() {
   pen.lineCap = 'round'; pen.lineJoin = 'round'; pen.lineWidth = 32;
   const silhouette = new Path2D('M350 340Q270 375 260 515L350 475V490H550V475L640 515Q630 375 550 340V240Q550 135 450 55Q350 135 350 240Z');
   const details = new Path2D('M350 340V475M550 340V475M356 210Q450 235 544 210M350 460H550M430 490V433L450 399L470 433V490M508 300A58 58 0 1 0 392 300A58 58 0 1 0 508 300');
-  let color = '#d75c3a', drawing = false, restoreImage = null, active = true;
+  let color = '#d75c3a', tool = 'crayon', drawing = false, restoreImage = null, active = true;
+  // Fill against the outline alone, so existing crayon marks never split a part.
+  const boundary = document.createElement('canvas');
+  boundary.width = canvas.width; boundary.height = canvas.height;
+  const edge = boundary.getContext('2d');
+  edge.lineWidth = 7; edge.lineJoin = 'round'; edge.lineCap = 'round';
+  edge.stroke(silhouette); edge.stroke(details);
+  const walls = edge.getImageData(0, 0, boundary.width, boundary.height).data;
+  function fillPart(p) {
+    const x = Math.floor(p.x), y = Math.floor(p.y), width = canvas.width, height = canvas.height;
+    if (x < 0 || y < 0 || x >= width || y >= height || !ctx.isPointInPath(silhouette, p.x, p.y)) {
+      tell('Tap inside a rocket part to fill it!'); return;
+    }
+    const start = y * width + x;
+    if (walls[start * 4 + 3]) { tell('Tap a little farther inside the outline.'); return; }
+    const seen = new Uint8Array(width * height), queue = new Int32Array(width * height);
+    const fillCanvas = document.createElement('canvas');
+    fillCanvas.width = width; fillCanvas.height = height;
+    const fillCtx = fillCanvas.getContext('2d'), pixels = fillCtx.createImageData(width, height);
+    const rgb = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16));
+    let head = 0, tail = 1; queue[0] = start; seen[start] = 1;
+    function visit(i) {
+      if (!seen[i] && !walls[i * 4 + 3]) { seen[i] = 1; queue[tail++] = i; }
+    }
+    while (head < tail) {
+      const i = queue[head++], offset = i * 4, column = i % width;
+      pixels.data[offset] = rgb[0]; pixels.data[offset + 1] = rgb[1];
+      pixels.data[offset + 2] = rgb[2]; pixels.data[offset + 3] = 255;
+      if (column > 0) visit(i - 1);
+      if (column < width - 1) visit(i + 1);
+      if (i >= width) visit(i - width);
+      if (i < width * (height - 1)) visit(i + width);
+    }
+    fillCtx.putImageData(pixels, 0, 0); pen.drawImage(fillCanvas, 0, 0);
+    compose(); remember(); tell('Splash! That part is ready for space.'); tone(620);
+  }
   function compose() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#fffef8'; ctx.fill(silhouette);
@@ -178,7 +213,12 @@ function renderDraw() {
     restoreImage.src = progress.drawing;
   } else remember();
   const controls = $('#controls');
-  controls.innerHTML = '<div class="palette" aria-label="Drawing colors">' + ['#d75c3a','#4e7b76','#e0ad43','#65588b'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Orange','Green','Yellow','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><button id="clear" class="small-button">Start over</button>';
+  controls.innerHTML = '<div class="drawing-tools" role="group" aria-label="Coloring tools"><button class="small-button" data-tool="crayon" aria-pressed="true">Crayon</button><button class="small-button" data-tool="bucket" aria-pressed="false">Paint bucket</button></div><div class="palette" aria-label="Drawing colors">' + ['#d75c3a','#4e7b76','#e0ad43','#65588b'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Orange','Green','Yellow','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><button id="clear" class="small-button">Start over</button>';
+  document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
+    tool = b.dataset.tool;
+    document.querySelectorAll('[data-tool]').forEach(t => t.setAttribute('aria-pressed', String(t === b)));
+    tell(tool === 'bucket' ? 'Pick a color, then tap inside a rocket part!' : 'Draw and color with your crayon!');
+  });
   document.querySelectorAll('[data-color]').forEach(b => b.onclick = () => {
     color = b.dataset.color;
     document.querySelectorAll('[data-color]').forEach(c => c.setAttribute('aria-pressed', String(c===b)));
@@ -198,6 +238,7 @@ function renderDraw() {
   }
   canvas.onpointerdown = e => {
     if (restoreImage) return;
+    if (tool === 'bucket') { fillPart(point(e)); return; }
     drawing = true; canvas.setPointerCapture(e.pointerId);
     const p = point(e); pen.strokeStyle = color; pen.beginPath(); pen.moveTo(p.x,p.y);
     pen.lineTo(p.x+.1,p.y+.1); pen.stroke(); compose();
