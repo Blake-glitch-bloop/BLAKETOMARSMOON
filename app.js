@@ -38,7 +38,7 @@ const pages = [
   { title: 'Lil’ Johnny Builds to Mars', label: 'The cover', text: 'A little builder. A big dream. And a whole universe of possibilities.' },
   { title: 'A very big dream.', label: 'A spark of an idea', text: 'Johnny looked up at the twinkly sky. “One day, I’ll go to Mars!” he said. First, he needed a little starlight.', instruction: '<strong>Tap the five golden stars.</strong><br>Every big idea starts with a little sparkle.' },
   { title: 'Let’s build a rocket!', label: 'The little workshop', text: 'A pointy top. Two sturdy fins. A window to see the stars. Johnny had all the pieces. Can you help?', instruction: '<strong>Drag each piece onto the rocket.</strong><br>You can also tap a piece, then tap the rocket.' },
-  { title: 'Make it yours.', label: 'A splash of imagination', text: '“What will our spaceship look like?” asked Johnny. A pointy rocket? A flying saucer? You get to decide!', instruction: '<strong>Draw your spaceship with your finger.</strong><br>Your drawing will fly all the way to Mars!' },
+  { title: 'Make it yours.', label: 'A splash of imagination', text: '“Let’s give our rocket some color!” said Johnny. Red fins? A purple nose? Pick your favorite crayons and make it yours!', instruction: '<strong>Color in the rocket with your finger.</strong><br>Your colored rocket will fly all the way to Mars!' },
   { title: 'Ready, set… whoosh!', label: 'Time for lift-off', text: 'Helmet? On. Snacks? Packed. Big dream? Ready! Johnny climbed inside. Mars was waiting.', instruction: '<strong>Hold the launch button.</strong><br>Fill the rocket with whoosh-power!' },
   { title: 'Hello, red planet!', label: 'A brand-new world', text: 'Bump! The rocket landed on soft, rusty sand. “We did it!” laughed Johnny. “We really made it to Mars!”', instruction: '<strong>Tap the little flag to plant it.</strong><br>A tiny flag for a very big adventure.' },
   { title: 'Little hands.<br><em>Limitless dreams.</em>', label: 'The beginning of everything', text: 'Johnny built a rocket. You helped him fly. What wonderful thing will you build next?', instruction: '<strong>The end… for now.</strong><br>Every adventure begins with “what if?”' }
@@ -146,21 +146,73 @@ function cropShipDrawing(canvas) {
 
 function renderDraw() {
   art(`${littleStars}${baseGround()}<g transform="rotate(-7 110 400)"><path d="M70 360h92v75H70z" fill="#dec591"/><path d="m76 373 55 39m-55 0 55-39" stroke="#9b8259" stroke-width="2"/></g><path d="m479 475 42-90 10 5-39 91-14 13Z" fill="#d5633d"/><path d="m478 475 14 6-14 13Z" fill="#e8d2a0"/><path d="m478 486 4 3-4 5" fill="#3e564b"/>`);
-  const board=document.createElement('div');board.className='draw-board';board.innerHTML='<canvas aria-label="Drawing area: draw your rocket design here"></canvas>';$('.activity-scene').append(board);
-  const canvas=$('canvas'),ctx=canvas.getContext('2d');canvas.width=900;canvas.height=600;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=12;
-  if(progress.drawing){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0);img.src=progress.drawing;}
-  else {ctx.fillStyle='#ccd0b6';ctx.font='italic 32px Georgia';ctx.textAlign='center';ctx.fillText('Your imagination goes here…',450,290);}
-  let color='#d75c3a',drawing=false,started=!!progress.drawing;
-  const controls=$('#controls');controls.innerHTML='<div class="palette" aria-label="Drawing colors">'+['#d75c3a','#4e7b76','#e0ad43','#65588b'].map((c,i)=>`<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Orange','Green','Yellow','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('')+'</div><button id="clear" class="small-button">Start over</button>';
-  document.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{color=b.dataset.color;document.querySelectorAll('[data-color]').forEach(c=>c.setAttribute('aria-pressed',String(c===b)));tone(500);});
-  $('#clear').onclick=()=>{ctx.clearRect(0,0,900,600);progress.drawing=null;progress.shipDesign=null;started=true;tell('A fresh page for a fresh idea.');};
-  // Invert the transformed canvas rectangle, keeping pen strokes aligned on tilted paper.
-  function point(e){const r=canvas.getBoundingClientRect(),angle=-3*Math.PI/180;const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);return {x:(dx*Math.cos(angle)+dy*Math.sin(angle))/canvas.clientWidth*900+450,y:(-dx*Math.sin(angle)+dy*Math.cos(angle))/canvas.clientHeight*600+300};}
-  canvas.onpointerdown=e=>{if(!started){ctx.clearRect(0,0,900,600);started=true;}drawing=true;canvas.setPointerCapture(e.pointerId);const p=point(e);ctx.strokeStyle=color;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+.1,p.y+.1);ctx.stroke();};
-  canvas.onpointermove=e=>{if(!drawing)return;const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke();};
-  const save=()=>{if(drawing){drawing=false;progress.drawing=canvas.toDataURL();progress.shipDesign=cropShipDrawing(canvas);tell('Your spaceship is ready for lift-off!');tone(620);}};canvas.onpointerup=save;canvas.onpointercancel=save;
-  cleanup=save;
-  tell('Choose a crayon. Make your mark!');
+  const board = document.createElement('div');
+  board.className = 'draw-board';
+  board.innerHTML = '<canvas aria-label="Coloring area: color in the rocket outline here"></canvas>';
+  $('.activity-scene').append(board);
+  const canvas = $('canvas'), ctx = canvas.getContext('2d');
+  const paint = document.createElement('canvas'), pen = paint.getContext('2d');
+  canvas.width = paint.width = 900; canvas.height = paint.height = 600;
+  pen.lineCap = 'round'; pen.lineJoin = 'round'; pen.lineWidth = 32;
+  const silhouette = new Path2D('M350 340Q270 375 260 515L350 475V490H550V475L640 515Q630 375 550 340V240Q550 135 450 55Q350 135 350 240Z');
+  const details = new Path2D('M350 340V475M550 340V475M356 210Q450 235 544 210M350 460H550M430 490V433L450 399L470 433V490M508 300A58 58 0 1 0 392 300A58 58 0 1 0 508 300');
+  let color = '#d75c3a', drawing = false, restoreImage = null, active = true;
+  function compose() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fffef8'; ctx.fill(silhouette);
+    ctx.save(); ctx.clip(silhouette); ctx.drawImage(paint, 0, 0); ctx.restore();
+    ctx.strokeStyle = '#405b50'; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.stroke(silhouette); ctx.stroke(details);
+  }
+  function remember() {
+    progress.drawing = paint.toDataURL();
+    progress.shipDesign = cropShipDrawing(canvas);
+  }
+  compose();
+  if (progress.drawing) {
+    restoreImage = new Image();
+    restoreImage.onload = () => {
+      if (!active) return;
+      pen.drawImage(restoreImage, 0, 0); restoreImage = null; compose(); remember();
+    };
+    restoreImage.src = progress.drawing;
+  } else remember();
+  const controls = $('#controls');
+  controls.innerHTML = '<div class="palette" aria-label="Drawing colors">' + ['#d75c3a','#4e7b76','#e0ad43','#65588b'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Orange','Green','Yellow','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><button id="clear" class="small-button">Start over</button>';
+  document.querySelectorAll('[data-color]').forEach(b => b.onclick = () => {
+    color = b.dataset.color;
+    document.querySelectorAll('[data-color]').forEach(c => c.setAttribute('aria-pressed', String(c===b)));
+    tone(500);
+  });
+  $('#clear').onclick = () => {
+    if (restoreImage) { restoreImage.onload = null; restoreImage = null; }
+    drawing = false; pen.clearRect(0, 0, paint.width, paint.height); compose(); remember();
+    tell('A fresh rocket to color in!');
+  };
+  // Invert the tilted paper so finger strokes stay under the pointer.
+  function point(e) {
+    const r = canvas.getBoundingClientRect(), angle = -3 * Math.PI / 180;
+    const dx = e.clientX - (r.left + r.width/2), dy = e.clientY - (r.top + r.height/2);
+    return {x: (dx*Math.cos(angle)+dy*Math.sin(angle))/canvas.clientWidth*900+450,
+      y: (-dx*Math.sin(angle)+dy*Math.cos(angle))/canvas.clientHeight*600+300};
+  }
+  canvas.onpointerdown = e => {
+    if (restoreImage) return;
+    drawing = true; canvas.setPointerCapture(e.pointerId);
+    const p = point(e); pen.strokeStyle = color; pen.beginPath(); pen.moveTo(p.x,p.y);
+    pen.lineTo(p.x+.1,p.y+.1); pen.stroke(); compose();
+  };
+  canvas.onpointermove = e => {
+    if (!drawing) return;
+    const p = point(e); pen.lineTo(p.x,p.y); pen.stroke(); compose();
+  };
+  const save = () => {
+    if (!drawing) return;
+    drawing = false; remember(); tell('Your colored rocket is ready for lift-off!'); tone(620);
+  };
+  canvas.onpointerup = save; canvas.onpointercancel = save;
+  cleanup = () => { save(); active = false; };
+  tell('Choose a crayon and color your rocket!');
 }
 
 function renderLaunch() {
