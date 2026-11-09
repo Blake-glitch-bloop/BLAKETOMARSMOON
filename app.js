@@ -5,7 +5,7 @@ let page = 0;
 let soundOn = false;
 let audioContext;
 let cleanup = () => {};
-const progress = { stars: new Set(), parts: new Set(), drawing: null, shipDesign: null, launched: false, flag: false };
+const progress = { stars: new Set(), parts: new Set(), drawing: null, drawingHistory: [], shipDesign: null, launched: false, flag: false };
 const star = (x, y, size = 11, color = '#dfb75e') => `<path class="sparkle" fill="${color}" d="M${x} ${y-size}q2 ${size-2} ${size} ${size}q-${size-2} 2-${size} ${size}q-2-${size-2}-${size}-${size}q${size-2}-2 ${size}-${size}Z"/>`;
 const littleStars = [[45,100,6],[160,70,5],[345,38,7],[525,110,9],[470,250,7],[90,220,6],[530,360,4],[310,175,4]].map(s => star(...s)).join('');
 const defs = `<defs><filter id="shadow" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="3" dy="8" stdDeviation="3" flood-color="#465638" flood-opacity=".16"/></filter><pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0v22" fill="none" stroke="#d8decb" stroke-width=".8"/></pattern></defs>`;
@@ -157,6 +157,14 @@ function renderDraw() {
   const silhouette = new Path2D('M350 340Q270 375 260 515L350 475V490H550V475L640 515Q630 375 550 340V240Q550 135 450 55Q350 135 350 240Z');
   const details = new Path2D('M350 340V475M550 340V475M356 210Q450 235 544 210M350 460H550M430 490V433L450 399L470 433V490M508 300A58 58 0 1 0 392 300A58 58 0 1 0 508 300');
   let color = '#e24b4b', tool = 'crayon', drawing = false, restoreImage = null, active = true;
+  let actionBefore = null, strokePointer = null;
+  function checkpoint() {
+    actionBefore = { uri: paint.toDataURL(), pixels: pen.getImageData(0, 0, paint.width, paint.height) };
+  }
+  function updateUndo() {
+    const button = $('#undo');
+    if (button) button.disabled = !!restoreImage || drawing || progress.drawingHistory.length === 0;
+  }
   // Fill against the outline alone, so existing crayon marks never split a part.
   const boundary = document.createElement('canvas');
   boundary.width = canvas.width; boundary.height = canvas.height;
@@ -189,7 +197,8 @@ function renderDraw() {
       if (i >= width) visit(i - width);
       if (i < width * (height - 1)) visit(i + width);
     }
-    fillCtx.putImageData(pixels, 0, 0); pen.drawImage(fillCanvas, 0, 0);
+    checkpoint();
+    fillCtx.putImageData(pixels, 0, 0); pen.globalCompositeOperation = 'source-over'; pen.drawImage(fillCanvas, 0, 0);
     compose(); remember(); tell('Splash! That part is ready for space.'); tone(620);
   }
   function compose() {
@@ -200,8 +209,15 @@ function renderDraw() {
     ctx.stroke(silhouette); ctx.stroke(details);
   }
   function remember() {
-    progress.drawing = paint.toDataURL();
+    const next = paint.toDataURL();
+    if (actionBefore !== null && next !== actionBefore.uri) {
+      progress.drawingHistory.push(actionBefore.pixels);
+      if (progress.drawingHistory.length > 20) progress.drawingHistory.shift();
+    }
+    actionBefore = null;
+    progress.drawing = next;
     progress.shipDesign = cropShipDrawing(canvas);
+    updateUndo();
   }
   compose();
   if (progress.drawing) {
@@ -213,11 +229,11 @@ function renderDraw() {
     restoreImage.src = progress.drawing;
   } else remember();
   const controls = $('#controls');
-  controls.innerHTML = '<div class="drawing-tools" role="group" aria-label="Coloring tools"><button class="small-button" data-tool="crayon" aria-pressed="true">Crayon</button><button class="small-button" data-tool="bucket" aria-pressed="false">Paint bucket</button></div><div class="palette" aria-label="Drawing colors">' + ['#e24b4b','#ec8b35','#efc443','#49a86a','#438ed5','#5556b3','#9656bf'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Red','Orange','Yellow','Green','Blue','Indigo','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><button id="clear" class="small-button">Start over</button>';
+  controls.innerHTML = '<div class="drawing-tools" role="group" aria-label="Coloring tools"><button class="small-button" data-tool="crayon" aria-pressed="true">Crayon</button><button class="small-button" data-tool="bucket" aria-pressed="false">Paint bucket</button><button class="small-button" data-tool="eraser" aria-pressed="false">Erase</button></div><div class="palette" aria-label="Drawing colors">' + ['#e24b4b','#ec8b35','#efc443','#49a86a','#438ed5','#5556b3','#9656bf'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Red','Orange','Yellow','Green','Blue','Indigo','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><div class="drawing-actions"><button id="undo" class="small-button" disabled>Undo ↶</button><button id="clear" class="small-button">Start over</button></div>';
   document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
     tool = b.dataset.tool;
     document.querySelectorAll('[data-tool]').forEach(t => t.setAttribute('aria-pressed', String(t === b)));
-    tell(tool === 'bucket' ? 'Pick a color, then tap inside a rocket part!' : 'Draw and color with your crayon!');
+    tell(tool === 'bucket' ? 'Pick a color, then tap inside a rocket part!' : tool === 'eraser' ? 'Drag to erase color wherever you like!' : 'Draw and color with your crayon!');
   });
   document.querySelectorAll('[data-color]').forEach(b => b.onclick = () => {
     color = b.dataset.color;
@@ -225,10 +241,17 @@ function renderDraw() {
     tone(500);
   });
   $('#clear').onclick = () => {
-    if (restoreImage) { restoreImage.onload = null; restoreImage = null; }
-    drawing = false; pen.clearRect(0, 0, paint.width, paint.height); compose(); remember();
+    if (restoreImage) return;
+    save(); checkpoint(); pen.clearRect(0, 0, paint.width, paint.height); compose(); remember();
     tell('A fresh rocket to color in!');
   };
+  $('#undo').onclick = () => {
+    if (drawing || restoreImage || progress.drawingHistory.length === 0) return;
+    const previous = progress.drawingHistory.pop();
+    pen.putImageData(previous, 0, 0);
+    compose(); remember(); tell('Last action undone!'); tone(480);
+  };
+  updateUndo();
   // Invert the tilted paper so finger strokes stay under the pointer.
   function point(e) {
     const r = canvas.getBoundingClientRect(), angle = -3 * Math.PI / 180;
@@ -237,21 +260,24 @@ function renderDraw() {
       y: (-dx*Math.sin(angle)+dy*Math.cos(angle))/canvas.clientHeight*600+300};
   }
   canvas.onpointerdown = e => {
-    if (restoreImage) return;
+    if (restoreImage || drawing) return;
     if (tool === 'bucket') { fillPart(point(e)); return; }
-    drawing = true; canvas.setPointerCapture(e.pointerId);
+    checkpoint(); drawing = true; strokePointer = e.pointerId; canvas.setPointerCapture(e.pointerId); updateUndo();
+    pen.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+    pen.lineWidth = tool === 'eraser' ? 60 : 32;
     const p = point(e); pen.strokeStyle = color; pen.beginPath(); pen.moveTo(p.x,p.y);
     pen.lineTo(p.x+.1,p.y+.1); pen.stroke(); compose();
   };
   canvas.onpointermove = e => {
-    if (!drawing) return;
+    if (!drawing || e.pointerId !== strokePointer) return;
     const p = point(e); pen.lineTo(p.x,p.y); pen.stroke(); compose();
   };
-  const save = () => {
-    if (!drawing) return;
-    drawing = false; remember(); tell('Your colored rocket is ready for lift-off!'); tone(620);
+  const save = (e) => {
+    if (!drawing || (e && e.pointerId !== strokePointer)) return;
+    drawing = false; strokePointer = null; pen.globalCompositeOperation = 'source-over';
+    remember(); tell(tool === 'eraser' ? 'Erased! You can color that spot again.' : 'Your colored rocket is ready for lift-off!'); tone(620);
   };
-  canvas.onpointerup = save; canvas.onpointercancel = save;
+  canvas.onpointerup = save; canvas.onpointercancel = save; canvas.onlostpointercapture = save;
   cleanup = () => { save(); active = false; };
   tell('Choose a crayon and color your rocket!');
 }
@@ -276,7 +302,7 @@ function renderMars() {
 function renderEnd() {
   art(`${littleStars}${baseGround()}<circle cx="330" cy="245" r="160" fill="#e6dfba"/><circle cx="330" cy="245" r="142" fill="none" stroke="#c0bb94" stroke-dasharray="3 9"/><path d="m332 111 16 32 37 5-27 27 6 36-32-17-33 17 7-36-27-27 37-5Z" fill="#d8ab50"/><text x="330" y="249" text-anchor="middle" fill="#45614a" font-family="Georgia" font-size="31">Official little</text><text x="330" y="291" text-anchor="middle" fill="#45614a" font-family="Georgia" font-style="italic" font-size="45">space explorer</text><text x="330" y="329" text-anchor="middle" fill="#7a8568" font-family="Trebuchet MS" font-size="11" letter-spacing="3">BIG DREAMS START WITH YOU</text>${johnny(152,425,.9,true)}<g transform="rotate(16 490 390)">${rocket(490,390,.36)}</g>`);
   $('#controls').innerHTML='<button class="primary replay" id="replay">Read it again <span>↺</span></button>';
-  $('#replay').onclick=()=>{progress.stars.clear();progress.parts.clear();progress.drawing=null;progress.shipDesign=null;progress.launched=false;progress.flag=false;go(0);};
+  $('#replay').onclick=()=>{progress.stars.clear();progress.parts.clear();progress.drawing=null;progress.drawingHistory.length=0;progress.shipDesign=null;progress.launched=false;progress.flag=false;go(0);};
   tell('Keep building. Keep dreaming.');
 }
 
