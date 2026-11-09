@@ -5,7 +5,7 @@ let page = 0;
 let soundOn = false;
 let audioContext;
 let cleanup = () => {};
-const progress = { stars: new Set(), parts: new Set(), drawing: null, drawingHistory: [], shipDesign: null, launched: false, flag: false };
+const progress = { stars: new Set(), parts: new Set(), drawing: null, drawingHistory: [], drawingRedo: [], shipDesign: null, launched: false, flag: false };
 const star = (x, y, size = 11, color = '#dfb75e') => `<path class="sparkle" fill="${color}" d="M${x} ${y-size}q2 ${size-2} ${size} ${size}q-${size-2} 2-${size} ${size}q-2-${size-2}-${size}-${size}q${size-2}-2 ${size}-${size}Z"/>`;
 const littleStars = [[45,100,6],[160,70,5],[345,38,7],[525,110,9],[470,250,7],[90,220,6],[530,360,4],[310,175,4]].map(s => star(...s)).join('');
 const defs = `<defs><filter id="shadow" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="3" dy="8" stdDeviation="3" flood-color="#465638" flood-opacity=".16"/></filter><pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0v22" fill="none" stroke="#d8decb" stroke-width=".8"/></pattern></defs>`;
@@ -36,7 +36,7 @@ function coverArt() {
 
 const pages = [
   { title: 'Lil’ Johnny Builds to Mars', label: 'The cover', text: 'A little builder. A big dream. And a whole universe of possibilities.' },
-  { title: 'A very big dream.', label: 'A spark of an idea', text: 'Johnny looked up at the twinkly sky. “One day, I’ll go to Mars!” he said. First, he needed a little starlight.', instruction: '<strong>Tap the five golden stars.</strong><br>Every big idea starts with a little sparkle.' },
+  { title: 'A very big dream.', label: 'A spark of an idea', text: 'Johnny looked up at the twinkly sky. “One day, I’ll go to Mars!” he said. First, he needed a little starlight.', instruction: '<strong>Tap the five golden stars.</strong><br>Watch each one turn rainbow!' },
   { title: 'Let’s build a rocket!', label: 'The little workshop', text: 'A pointy top. Two sturdy fins. A window to see the stars. Johnny had all the pieces. Can you help?', instruction: '<strong>Drag each piece onto the rocket.</strong><br>You can also tap a piece, then tap the rocket.' },
   { title: 'Make it yours.', label: 'A splash of imagination', text: '“Let’s give our rocket some color!” said Johnny. Red fins? A purple nose? Pick your favorite crayons and make it yours!', instruction: '<strong>Color in the rocket with your finger.</strong><br>Your colored rocket will fly all the way to Mars!' },
   { title: 'Ready, set… whoosh!', label: 'Time for lift-off', text: 'Helmet? On. Snacks? Packed. Big dream? Ready! Johnny climbed inside. Mars was waiting.', instruction: '<strong>Hold the launch button.</strong><br>Fill the rocket with whoosh-power!' },
@@ -97,7 +97,19 @@ function go(index) { if(index<0||index>=pages.length)return; page=index; tone(36
 function renderStars() {
   art(`<circle cx="467" cy="105" r="43" fill="#e7ddb4"/><circle cx="453" cy="95" r="9" fill="#d1c79f"/><circle cx="481" cy="119" r="6" fill="#d1c79f"/>${littleStars}<path d="M0 465q140-70 290-18t310-8v131H0Z" fill="#57745b"/><path d="M0 523q170-83 350-28t250 0v75H0Z" fill="#3c5c49"/>${johnny(285,426,1.1)}<path d="M203 523h180" stroke="#9aac7d" stroke-width="2" stroke-linecap="round"/>`,true);
   const positions=[[15,17],[43,8],[66,35],[25,43],[79,58]];
-  positions.forEach(([x,y],i)=>{ const b=document.createElement('button'); b.className=`star-button${progress.stars.has(i)?' found':''}`; b.style.cssText=`left:${x}%;top:${y}%`; b.textContent='✦'; b.setAttribute('aria-label',`Collect star ${i+1}`); b.disabled=progress.stars.has(i); b.onclick=()=>{progress.stars.add(i); b.classList.add('found');b.disabled=true;tone(440+progress.stars.size*100);update();if(progress.stars.size===5)celebrate();}; $('.activity-scene').append(b); });
+  positions.forEach(([x,y],i)=>{
+    const b=document.createElement('button'), found=progress.stars.has(i);
+    b.className=`star-button${found?' found':''}`; b.style.cssText=`left:${x}%;top:${y}%`;
+    b.innerHTML='<span aria-hidden="true">✦</span>';
+    b.setAttribute('aria-label',found?`Rainbow star ${i+1} collected`:`Collect star ${i+1}`); b.disabled=found;
+    b.onclick=()=>{
+      if(progress.stars.has(i)) return;
+      progress.stars.add(i); b.classList.add('found'); b.disabled=true;
+      b.setAttribute('aria-label',`Rainbow star ${i+1} collected`);
+      tone(440+progress.stars.size*100); update(); if(progress.stars.size===5)celebrate();
+    };
+    $('.activity-scene').append(b);
+  });
   function update(){tell(progress.stars.size===5?'Five little sparks. One BIG idea!':`${progress.stars.size} of 5 stars collected ✦`);} update();
 }
 
@@ -164,6 +176,8 @@ function renderDraw() {
   function updateUndo() {
     const button = $('#undo');
     if (button) button.disabled = !!restoreImage || drawing || progress.drawingHistory.length === 0;
+    const redo = $('#redo');
+    if (redo) redo.disabled = !!restoreImage || drawing || progress.drawingRedo.length === 0;
   }
   // Fill against the outline alone, so existing crayon marks never split a part.
   const boundary = document.createElement('canvas');
@@ -213,6 +227,7 @@ function renderDraw() {
     if (actionBefore !== null && next !== actionBefore.uri) {
       progress.drawingHistory.push(actionBefore.pixels);
       if (progress.drawingHistory.length > 20) progress.drawingHistory.shift();
+      progress.drawingRedo.length = 0;
     }
     actionBefore = null;
     progress.drawing = next;
@@ -229,7 +244,7 @@ function renderDraw() {
     restoreImage.src = progress.drawing;
   } else remember();
   const controls = $('#controls');
-  controls.innerHTML = '<div class="drawing-tools" role="group" aria-label="Coloring tools"><button class="small-button" data-tool="crayon" aria-pressed="true">Crayon</button><button class="small-button" data-tool="bucket" aria-pressed="false">Paint bucket</button><button class="small-button" data-tool="eraser" aria-pressed="false">Erase</button></div><div class="palette" aria-label="Drawing colors">' + ['#e24b4b','#ec8b35','#efc443','#49a86a','#438ed5','#5556b3','#9656bf'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Red','Orange','Yellow','Green','Blue','Indigo','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><div class="drawing-actions"><button id="undo" class="small-button" disabled>Undo ↶</button><button id="clear" class="small-button">Start over</button></div>';
+  controls.innerHTML = '<div class="drawing-tools" role="group" aria-label="Coloring tools"><button class="small-button" data-tool="crayon" aria-pressed="true">Crayon</button><button class="small-button" data-tool="bucket" aria-pressed="false">Paint bucket</button><button class="small-button" data-tool="eraser" aria-pressed="false">Erase</button></div><div class="palette" aria-label="Drawing colors">' + ['#e24b4b','#ec8b35','#efc443','#49a86a','#438ed5','#5556b3','#9656bf'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Red','Orange','Yellow','Green','Blue','Indigo','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><div class="drawing-actions"><button id="undo" class="small-button" disabled>Undo ↶</button><button id="redo" class="small-button" disabled>Redo ↷</button><button id="clear" class="small-button">Start over</button></div>';
   document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
     tool = b.dataset.tool;
     document.querySelectorAll('[data-tool]').forEach(t => t.setAttribute('aria-pressed', String(t === b)));
@@ -247,9 +262,16 @@ function renderDraw() {
   };
   $('#undo').onclick = () => {
     if (drawing || restoreImage || progress.drawingHistory.length === 0) return;
+    progress.drawingRedo.push(pen.getImageData(0, 0, paint.width, paint.height));
     const previous = progress.drawingHistory.pop();
     pen.putImageData(previous, 0, 0);
     compose(); remember(); tell('Last action undone!'); tone(480);
+  };
+  $('#redo').onclick = () => {
+    if (drawing || restoreImage || progress.drawingRedo.length === 0) return;
+    progress.drawingHistory.push(pen.getImageData(0, 0, paint.width, paint.height));
+    pen.putImageData(progress.drawingRedo.pop(), 0, 0);
+    compose(); remember(); tell('Your action is back!'); tone(620);
   };
   updateUndo();
   // Invert the tilted paper so finger strokes stay under the pointer.
@@ -302,7 +324,7 @@ function renderMars() {
 function renderEnd() {
   art(`${littleStars}${baseGround()}<circle cx="330" cy="245" r="160" fill="#e6dfba"/><circle cx="330" cy="245" r="142" fill="none" stroke="#c0bb94" stroke-dasharray="3 9"/><path d="m332 111 16 32 37 5-27 27 6 36-32-17-33 17 7-36-27-27 37-5Z" fill="#d8ab50"/><text x="330" y="249" text-anchor="middle" fill="#45614a" font-family="Georgia" font-size="31">Official little</text><text x="330" y="291" text-anchor="middle" fill="#45614a" font-family="Georgia" font-style="italic" font-size="45">space explorer</text><text x="330" y="329" text-anchor="middle" fill="#7a8568" font-family="Trebuchet MS" font-size="11" letter-spacing="3">BIG DREAMS START WITH YOU</text>${johnny(152,425,.9,true)}<g transform="rotate(16 490 390)">${rocket(490,390,.36)}</g>`);
   $('#controls').innerHTML='<button class="primary replay" id="replay">Read it again <span>↺</span></button>';
-  $('#replay').onclick=()=>{progress.stars.clear();progress.parts.clear();progress.drawing=null;progress.drawingHistory.length=0;progress.shipDesign=null;progress.launched=false;progress.flag=false;go(0);};
+  $('#replay').onclick=()=>{progress.stars.clear();progress.parts.clear();progress.drawing=null;progress.drawingHistory.length=0;progress.drawingRedo.length=0;progress.shipDesign=null;progress.launched=false;progress.flag=false;go(0);};
   tell('Keep building. Keep dreaming.');
 }
 

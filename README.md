@@ -14,9 +14,9 @@ The included GitHub Actions workflow publishes this static site to GitHub Pages 
 
 ## Play
 
-- Tap stars to collect five sparks of inspiration.
+- Tap the five golden stars to turn each one rainbow. Collected stars stay rainbow when revisiting the page.
 - Drag rocket parts into place, or tap a part and then the rocket. The tap alternative also works with a keyboard.
-- Color the rocket outline with seven rainbow colors: red, orange, yellow, green, blue, indigo, and purple. Use Crayon for freehand strokes, or Paint bucket to tap and fill an outlined part (nose, window, body, fins, or bottom band). Erase removes color wherever you drag while keeping the outline. Undo reverses the last crayon stroke, bucket fill, eraser stroke, or Start over (up to 20 actions, retained while turning pages). Bucket fills use the rocket outline, so they work over existing crayon marks. Coloring stays inside the rocket, and its outlines stay visible. Your colored rocket appears at launch, on Mars, and at the ending, and stays when moving between pages. Start over clears the colors and keeps the outline; skipping the coloring page uses the original rocket.
+- Color the rocket outline with seven rainbow colors: red, orange, yellow, green, blue, indigo, and purple. Use Crayon for freehand strokes, or Paint bucket to tap and fill an outlined part (nose, window, body, fins, or bottom band). Erase removes color wherever you drag while keeping the outline. Undo reverses the last crayon stroke, bucket fill, eraser stroke, or Start over (up to 20 actions, retained while turning pages). Redo brings an undone action back, including after turning pages. Making a new coloring action clears the redo history. Bucket fills use the rocket outline, so they work over existing crayon marks. Coloring stays inside the rocket, and its outlines stay visible. Your colored rocket appears at launch, on Mars, and at the ending, and stays when moving between pages. Start over clears the colors and keeps the outline; skipping the coloring page uses the original rocket.
 - Hold the launch button with a finger, mouse, Space, or Enter to fill the power meter.
 - Tap the flag to plant it on Mars.
 - Use the page arrows or dots to explore freely. Read again resets the adventure.
