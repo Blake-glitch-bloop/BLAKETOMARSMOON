@@ -16,7 +16,7 @@ The included GitHub Actions workflow publishes this static site to GitHub Pages 
 
 - Tap stars to collect five sparks of inspiration.
 - Drag rocket parts into place, or tap a part and then the rocket. The tap alternative also works with a keyboard.
-- Draw with four crayon colors; the drawing stays while moving between pages during the session.
+- Draw your own spaceship with four crayon colors. Your artwork becomes the ship at launch, on Mars, and at the ending; it stays while moving between pages during the session. Start over clears the artwork, and skipping drawing uses the original rocket.
 - Hold the launch button with a finger, mouse, Space, or Enter to fill the power meter.
 - Tap the flag to plant it on Mars.
 - Use the page arrows or dots to explore freely. Read again resets the adventure.
