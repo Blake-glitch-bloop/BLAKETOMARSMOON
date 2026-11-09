@@ -156,7 +156,7 @@ function renderDraw() {
   pen.lineCap = 'round'; pen.lineJoin = 'round'; pen.lineWidth = 32;
   const silhouette = new Path2D('M350 340Q270 375 260 515L350 475V490H550V475L640 515Q630 375 550 340V240Q550 135 450 55Q350 135 350 240Z');
   const details = new Path2D('M350 340V475M550 340V475M356 210Q450 235 544 210M350 460H550M430 490V433L450 399L470 433V490M508 300A58 58 0 1 0 392 300A58 58 0 1 0 508 300');
-  let color = '#d75c3a', tool = 'crayon', drawing = false, restoreImage = null, active = true;
+  let color = '#e24b4b', tool = 'crayon', drawing = false, restoreImage = null, active = true;
   // Fill against the outline alone, so existing crayon marks never split a part.
   const boundary = document.createElement('canvas');
   boundary.width = canvas.width; boundary.height = canvas.height;
@@ -213,7 +213,7 @@ function renderDraw() {
     restoreImage.src = progress.drawing;
   } else remember();
   const controls = $('#controls');
-  controls.innerHTML = '<div class="drawing-tools" role="group" aria-label="Coloring tools"><button class="small-button" data-tool="crayon" aria-pressed="true">Crayon</button><button class="small-button" data-tool="bucket" aria-pressed="false">Paint bucket</button></div><div class="palette" aria-label="Drawing colors">' + ['#d75c3a','#4e7b76','#e0ad43','#65588b'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Orange','Green','Yellow','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><button id="clear" class="small-button">Start over</button>';
+  controls.innerHTML = '<div class="drawing-tools" role="group" aria-label="Coloring tools"><button class="small-button" data-tool="crayon" aria-pressed="true">Crayon</button><button class="small-button" data-tool="bucket" aria-pressed="false">Paint bucket</button></div><div class="palette" aria-label="Drawing colors">' + ['#e24b4b','#ec8b35','#efc443','#49a86a','#438ed5','#5556b3','#9656bf'].map((c,i) => `<button class="color-dot" style="background:${c}" data-color="${c}" aria-label="${['Red','Orange','Yellow','Green','Blue','Indigo','Purple'][i]} crayon" aria-pressed="${i===0}"></button>`).join('') + '</div><button id="clear" class="small-button">Start over</button>';
   document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
     tool = b.dataset.tool;
     document.querySelectorAll('[data-tool]').forEach(t => t.setAttribute('aria-pressed', String(t === b)));
