@@ -5,7 +5,7 @@ let page = 0;
 let soundOn = false;
 let audioContext;
 let cleanup = () => {};
-const progress = { stars: new Set(), parts: new Set(), drawing: null, drawingHistory: [], drawingRedo: [], shipDesign: null, launched: false, flag: false };
+const progress = { stars: new Set(), parts: new Set(), drawing: null, drawingHistory: [], drawingRedo: [], shipDesign: null, launched: false, flag: false, supplies: new Set(), moonCraters: new Set(), spaceRocks: new Set(), roverSteps: 0 };
 const star = (x, y, size = 11, color = '#dfb75e') => `<path class="sparkle" fill="${color}" d="M${x} ${y-size}q2 ${size-2} ${size} ${size}q-${size-2} 2-${size} ${size}q-2-${size-2}-${size}-${size}q${size-2}-2 ${size}-${size}Z"/>`;
 const littleStars = [[45,100,6],[160,70,5],[345,38,7],[525,110,9],[470,250,7],[90,220,6],[530,360,4],[310,175,4]].map(s => star(...s)).join('');
 const defs = `<defs><filter id="shadow" x="-40%" y="-30%" width="180%" height="180%"><feDropShadow dx="3" dy="8" stdDeviation="3" flood-color="#465638" flood-opacity=".16"/></filter><pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0v22" fill="none" stroke="#d8decb" stroke-width=".8"/></pattern></defs>`;
@@ -36,12 +36,16 @@ function coverArt() {
 
 const pages = [
   { title: 'Lil’ Johnny Builds to Mars', label: 'The cover', text: 'A little builder. A big dream. And a whole universe of possibilities.' },
-  { title: 'A very big dream.', label: 'A spark of an idea', text: 'Johnny looked up at the twinkly sky. “One day, I’ll go to Mars!” he said. First, he needed a little starlight.', instruction: '<strong>Tap the five golden stars.</strong><br>Watch each one turn rainbow!' },
-  { title: 'Let’s build a rocket!', label: 'The little workshop', text: 'A pointy top. Two sturdy fins. A window to see the stars. Johnny had all the pieces. Can you help?', instruction: '<strong>Drag each piece onto the rocket.</strong><br>You can also tap a piece, then tap the rocket.' },
-  { title: 'Make it yours.', label: 'A splash of imagination', text: '“Let’s give our rocket some color!” said Johnny. Red fins? A purple nose? Pick your favorite crayons and make it yours!', instruction: '<strong>Color in the rocket with your finger.</strong><br>Your colored rocket will fly all the way to Mars!' },
-  { title: 'Ready, set… whoosh!', label: 'Time for lift-off', text: 'Helmet? On. Snacks? Packed. Big dream? Ready! Johnny climbed inside. Mars was waiting.', instruction: '<strong>Hold the launch button.</strong><br>Fill the rocket with whoosh-power!' },
-  { title: 'Hello, red planet!', label: 'A brand-new world', text: 'Bump! The rocket landed on soft, rusty sand. “We did it!” laughed Johnny. “We really made it to Mars!”', instruction: '<strong>Tap the little flag to plant it.</strong><br>A tiny flag for a very big adventure.' },
-  { title: 'Little hands.<br><em>Limitless dreams.</em>', label: 'The beginning of everything', text: 'Johnny built a rocket. You helped him fly. What wonderful thing will you build next?', instruction: '<strong>The end… for now.</strong><br>Every adventure begins with “what if?”' }
+  { activity: 'stars', title: 'A very big dream.', label: 'A spark of an idea', text: 'Johnny looked up at the twinkly sky. “One day, I’ll go to Mars!” he said. First, he needed a little starlight.', instruction: '<strong>Tap the five golden stars.</strong><br>Watch each one turn rainbow!' },
+  { activity: 'build', title: 'Let’s build a rocket!', label: 'The little workshop', text: 'A pointy top. Two sturdy fins. A window to see the stars. Johnny had all the pieces. Can you help?', instruction: '<strong>Drag each piece onto the rocket.</strong><br>You can also tap a piece, then tap the rocket.' },
+  { activity: 'draw', title: 'Make it yours.', label: 'A splash of imagination', text: '“Let’s give our rocket some color!” said Johnny. Red fins? A purple nose? Pick your favorite crayons and make it yours!', instruction: '<strong>Color in the rocket with your finger.</strong><br>Your colored rocket will fly all the way to Mars!' },
+  { activity: 'pack', title: 'A bag full of adventure.', label: 'Packing for space', text: 'A sip of water. A crunchy apple. And Teddy, of course! Johnny packed a few little things for his very big trip.', instruction: '<strong>Tap each item to pack it.</strong><br>Even brave explorers bring a cuddly friend.' },
+  { activity: 'launch', title: 'Ready, set… whoosh!', label: 'Time for lift-off', text: 'Helmet? On. Snacks? Packed. Big dream? Ready! Johnny climbed inside. Mars was waiting.', instruction: '<strong>Hold the launch button.</strong><br>Fill the rocket with whoosh-power!' },
+  { activity: 'moon', title: 'Hello, Moon!', label: 'A wave along the way', text: 'Up, up, past the clouds! The Moon peeked through Johnny’s window. Three round craters looked like little dimples.', instruction: '<strong>Tap the three Moon craters.</strong><br>Make them glow as Johnny waves hello!' },
+  { activity: 'rocks', title: 'A little room to zoom.', label: 'Through the space rocks', text: 'Some lumpy space rocks floated in the way. “Excuse me, rocks!” said Johnny. His colorful rocket needed a clear path.', instruction: '<strong>Tap the three floating rocks.</strong><br>Give each one a gentle nudge out of the way.' },
+  { activity: 'mars', title: 'Hello, red planet!', label: 'A brand-new world', text: 'Bump! The rocket landed on soft, rusty sand. “We did it!” laughed Johnny. “We really made it to Mars!”', instruction: '<strong>Tap the little flag to plant it.</strong><br>A tiny flag for a very big adventure.' },
+  { activity: 'rover', title: 'Roll, little rover!', label: 'Exploring together', text: 'Johnny brought a tiny rover to explore the red sand. Its wheels made wiggly tracks. What might be over the next little hill?', instruction: '<strong>Tap the button to roll the rover.</strong><br>Three little rolls. A whole new world to explore!' },
+  { activity: 'end', title: 'Little hands.<br><em>Limitless dreams.</em>', label: 'The beginning of everything', text: 'Johnny built a rocket. You helped him fly. What wonderful thing will you build next?', instruction: '<strong>The end… for now.</strong><br>Every adventure begins with “what if?”' }
 ];
 
 function tell(message) { $('#live').textContent = message; const status = $('#status'); if (status) status.textContent = message; }
@@ -85,12 +89,10 @@ function render() {
   if (page===0) {
     $('#scene').className='scene'; $('#scene').innerHTML=coverArt(); $('#start').onclick=()=>go(1);
     document.querySelectorAll('[data-action="planet"]').forEach(el=>{ const spin=()=>{ el.classList.remove('wiggle'); void el.getBoundingClientRect(); el.classList.add('wiggle'); tone(420); tell('A whole universe to explore!'); }; el.onclick=spin; el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();spin();}}; });
-  } else if(page===1) renderStars();
-  else if(page===2) renderBuild();
-  else if(page===3) renderDraw();
-  else if(page===4) renderLaunch();
-  else if(page===5) renderMars();
-  else renderEnd();
+  } else {
+    const renderers = { stars: renderStars, build: renderBuild, draw: renderDraw, pack: renderPack, launch: renderLaunch, moon: renderMoon, rocks: renderSpaceRocks, mars: renderMars, rover: renderRover, end: renderEnd };
+    renderers[p.activity]();
+  }
 }
 function go(index) { if(index<0||index>=pages.length)return; page=index; tone(360,.1); render(); }
 
@@ -304,6 +306,78 @@ function renderDraw() {
   tell('Choose a crayon and color your rocket!');
 }
 
+function supplyIcon(id) {
+  if (id === 'water') return '<path d="M30 15h20v12H30z" fill="#557d76"/><rect x="21" y="26" width="38" height="57" rx="12" fill="#bdd5cd" stroke="#557d76" stroke-width="3"/><path d="M24 49h32v19H24" fill="#749f9c"/><path d="M30 35v8" stroke="#f2f4df" stroke-width="4" stroke-linecap="round"/>';
+  if (id === 'apple') return '<path d="M40 30q-25-17-29 13-2 32 27 36 26-2 30-29 4-32-28-20Z" fill="#d96a48" stroke="#ae543c" stroke-width="2"/><path d="M39 29 43 13" stroke="#6e6949" stroke-width="5" stroke-linecap="round"/><path d="M43 21q4-19 23-12-6 18-23 12" fill="#7c9a65"/><path d="M23 41q-7 12-2 18" stroke="#efa17a" stroke-width="4" fill="none" stroke-linecap="round"/>';
+  return '<g fill="#bb9162" stroke="#8a6c4b" stroke-width="2"><circle cx="19" cy="22" r="12"/><circle cx="61" cy="22" r="12"/><ellipse cx="40" cy="57" rx="22" ry="26"/><ellipse cx="17" cy="57" rx="10" ry="15"/><ellipse cx="63" cy="57" rx="10" ry="15"/><circle cx="24" cy="80" r="11"/><circle cx="56" cy="80" r="11"/><circle cx="40" cy="31" r="25"/></g><ellipse cx="40" cy="39" rx="13" ry="10" fill="#dfc19a"/><circle cx="31" cy="27" r="2.5" fill="#3c493c"/><circle cx="49" cy="27" r="2.5" fill="#3c493c"/><path d="m36 35 4 5 4-5Z" fill="#5b4e3b"/><path d="m24 53 16 5 16-5-2 12-14-7-14 7Z" fill="#ce6947"/>';
+}
+
+function renderPack() {
+  const items = [{ id: 'water', name: 'Water bottle' }, { id: 'apple', name: 'Apple' }, { id: 'teddy', name: 'Teddy bear' }];
+  const packed = items.filter(item => progress.supplies.has(item.id)).map((item, i) => `<g transform="translate(${278 + i * 66} 355) scale(.7)">${supplyIcon(item.id)}</g>`).join('');
+  art(`${littleStars}${baseGround()}${johnny(143,397,1)}<path d="m253 391 23-53h192l28 53" fill="#c9ae80" stroke="#9d8059" stroke-width="2"/>${packed}<path d="M250 405h246v89H250Z" fill="#bfa478" stroke="#9d8059" stroke-width="2"/><path d="m250 405 32 12h180l34-12" fill="#dfc495"/><rect x="350" y="432" width="44" height="27" rx="5" fill="#f2e1b9"/><path d="m365 440 7 12 9-12" stroke="#bf6846" stroke-width="3" fill="none"/>`);
+  const tray = document.createElement('div'); tray.className = 'supply-tray';
+  tray.innerHTML = items.map(item => `<button class="supply-button${progress.supplies.has(item.id) ? ' packed' : ''}" data-supply="${item.id}" aria-label="Pack ${item.name.toLowerCase()}" ${progress.supplies.has(item.id) ? 'disabled' : ''}><svg viewBox="0 0 80 95" aria-hidden="true">${supplyIcon(item.id)}</svg><span>${item.name}</span></button>`).join('');
+  $('.activity-scene').append(tray);
+  tray.querySelectorAll('[data-supply]').forEach(button => button.onclick = () => {
+    progress.supplies.add(button.dataset.supply); tone(520 + progress.supplies.size * 100); renderPack();
+    if (progress.supplies.size === items.length) celebrate();
+  });
+  tell(progress.supplies.size === items.length ? 'Water, apple, Teddy. All packed for space!' : `${progress.supplies.size} of 3 supplies packed`);
+}
+
+function renderMoon() {
+  art(`${littleStars}<circle cx="345" cy="280" r="163" fill="#e6dbb5"/><path d="M245 170q-65 80-35 177" fill="none" stroke="#f5ebca" stroke-width="11" stroke-linecap="round"/><circle cx="411" cy="188" r="24" fill="#d3c7a1"/><circle cx="293" cy="389" r="21" fill="#d3c7a1"/><circle cx="422" cy="352" r="13" fill="#d3c7a1"/><g class="float">${rocket(97,345,.43)}</g><path d="M125 160q59-64 154-67" stroke="#88a18c" stroke-dasharray="5 7" fill="none"/><path d="m267 87 14 6-12 8" stroke="#88a18c" fill="none"/>`, true);
+  [[44,34],[60,45],[47,60]].forEach(([x,y], i) => {
+    const crater = document.createElement('button');
+    crater.className = `moon-crater${progress.moonCraters.has(i) ? ' glowing' : ''}`;
+    crater.style.cssText = `left:${x}%;top:${y}%`;
+    crater.setAttribute('aria-label', `Light up Moon crater ${i + 1}`); crater.disabled = progress.moonCraters.has(i);
+    crater.onclick = () => {
+      progress.moonCraters.add(i); crater.classList.add('glowing'); crater.disabled = true; tone(600 + i * 120); update();
+      if (progress.moonCraters.size === 3) celebrate();
+    };
+    $('.activity-scene').append(crater);
+  });
+  function update() { tell(progress.moonCraters.size === 3 ? 'Three glowing craters. Goodbye, Moon!' : `${progress.moonCraters.size} of 3 Moon craters glowing`); }
+  update();
+}
+
+function renderSpaceRocks() {
+  art(`${littleStars}<circle cx="484" cy="106" r="41" fill="#cc7150"/><path d="M457 88q17 14 41 8m-33 25 30 8" stroke="#b15f47" stroke-width="9" fill="none"/><path d="M299 400V90" fill="none" stroke="#88a18c" stroke-width="2" stroke-dasharray="5 9"/><g class="float">${rocket(300,379,.62)}</g>`, true);
+  [[18,20],[67,31],[44,47]].forEach(([x,y], i) => {
+    const rock = document.createElement('button'); rock.className = `space-rock${progress.spaceRocks.has(i) ? ' cleared' : ''}`;
+    rock.style.cssText = `left:${x}%;top:${y}%`; rock.setAttribute('aria-label', `Move space rock ${i + 1}`); rock.disabled = progress.spaceRocks.has(i);
+    rock.innerHTML = '<svg viewBox="0 0 90 90" aria-hidden="true"><path d="m20 9 38-4 26 25-3 34-30 22-34-9L5 43Z" fill="#b8ad94" stroke="#807d68" stroke-width="3"/><circle cx="32" cy="32" r="12" fill="#928e77"/><circle cx="62" cy="51" r="10" fill="#a09a82"/><circle cx="32" cy="66" r="6" fill="#928e77"/></svg>';
+    rock.onclick = () => {
+      progress.spaceRocks.add(i); rock.classList.add('cleared'); rock.disabled = true; tone(330 + i * 100); update();
+      if (progress.spaceRocks.size === 3) celebrate();
+    };
+    $('.activity-scene').append(rock);
+  });
+  function update() { tell(progress.spaceRocks.size === 3 ? 'A clear path! Mars, here we come!' : `${progress.spaceRocks.size} of 3 rocks nudged aside`); }
+  update();
+}
+
+function renderRover() {
+  const roverX = () => 242 + progress.roverSteps * 39;
+  art(`${littleStars}${baseGround(true)}${johnny(112,404,.86,true)}${rocket(491,330,.33)}<path id="rover-tracks" d="M190 467H${roverX() - 30}" stroke="#865739" stroke-width="5" stroke-dasharray="4 9" fill="none"/><g id="rover" class="rover-rig" style="transform:translate(${roverX()}px,410px)"><path d="M-63-5H63l-10 41H-53Z" fill="#ecdfb8" stroke="#607863" stroke-width="3"/><path d="m-45-8 15-30h63l15 30" fill="#648c88" stroke="#456b65" stroke-width="3"/><path d="M-17-35v26M8-35v26m-31-14h60" stroke="#a8c5b0" stroke-width="2"/><path d="M45-6V-59m-7 0h14" stroke="#e1d8b5" stroke-width="4" stroke-linecap="round"/><circle cx="45" cy="-64" r="7" fill="#e7bd64"/><g class="rover-wheel"><circle cx="-41" cy="36" r="23" fill="#526253"/><circle cx="-41" cy="36" r="13" fill="#a8b294"/><path d="m-54 36h26m-13-13v26" stroke="#526253" stroke-width="3"/></g><g class="rover-wheel"><circle cx="41" cy="36" r="23" fill="#526253"/><circle cx="41" cy="36" r="13" fill="#a8b294"/><path d="m28 36h26m-13-13v26" stroke="#526253" stroke-width="3"/></g></g>`, true);
+  $('#controls').innerHTML = '<button class="primary" id="roll-rover">Roll the rover <span>→</span></button>';
+  const button = $('#roll-rover'), rig = $('#rover');
+  button.onclick = () => {
+    if (progress.roverSteps >= 3) return;
+    progress.roverSteps++; rig.style.transform = `translate(${roverX()}px,410px)`;
+    rig.classList.remove('rolling'); void rig.getBoundingClientRect(); rig.classList.add('rolling');
+    $('#rover-tracks').setAttribute('d', `M190 467H${roverX() - 30}`); tone(450 + progress.roverSteps * 100); update();
+    if (progress.roverSteps === 3) celebrate();
+  };
+  function update() {
+    button.disabled = progress.roverSteps >= 3;
+    tell(progress.roverSteps === 3 ? 'New tracks, new discoveries. Great exploring!' : `${progress.roverSteps} of 3 little rover rolls`);
+  }
+  update();
+}
+
 function renderLaunch() {
   art(`${littleStars}<path d="M0 466q182-40 340-2t260-9v115H0Z" fill="#acbc96"/><path d="M210 456h193v13H210z" fill="#7f9271"/><path d="M205 475h206" stroke="#6e8362" stroke-width="3"/><g class="launch-rocket">${rocket(310,286,.95)}</g><g fill="#efeddb"><ellipse cx="228" cy="474" rx="48" ry="20"/><ellipse cx="390" cy="475" rx="50" ry="22"/></g>`);
   $('#controls').innerHTML='<button class="primary hold-button" id="launch">Hold to launch <span>↑</span></button>';$('#controls').insertAdjacentHTML('afterend','<div class="fuel-meter" role="progressbar" aria-label="Whoosh power" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>');
@@ -324,7 +398,7 @@ function renderMars() {
 function renderEnd() {
   art(`${littleStars}${baseGround()}<circle cx="330" cy="245" r="160" fill="#e6dfba"/><circle cx="330" cy="245" r="142" fill="none" stroke="#c0bb94" stroke-dasharray="3 9"/><path d="m332 111 16 32 37 5-27 27 6 36-32-17-33 17 7-36-27-27 37-5Z" fill="#d8ab50"/><text x="330" y="249" text-anchor="middle" fill="#45614a" font-family="Georgia" font-size="31">Official little</text><text x="330" y="291" text-anchor="middle" fill="#45614a" font-family="Georgia" font-style="italic" font-size="45">space explorer</text><text x="330" y="329" text-anchor="middle" fill="#7a8568" font-family="Trebuchet MS" font-size="11" letter-spacing="3">BIG DREAMS START WITH YOU</text>${johnny(152,425,.9,true)}<g transform="rotate(16 490 390)">${rocket(490,390,.36)}</g>`);
   $('#controls').innerHTML='<button class="primary replay" id="replay">Read it again <span>↺</span></button>';
-  $('#replay').onclick=()=>{progress.stars.clear();progress.parts.clear();progress.drawing=null;progress.drawingHistory.length=0;progress.drawingRedo.length=0;progress.shipDesign=null;progress.launched=false;progress.flag=false;go(0);};
+  $('#replay').onclick=()=>{progress.stars.clear();progress.parts.clear();progress.drawing=null;progress.drawingHistory.length=0;progress.drawingRedo.length=0;progress.shipDesign=null;progress.launched=false;progress.flag=false;progress.supplies.clear();progress.moonCraters.clear();progress.spaceRocks.clear();progress.roverSteps=0;go(0);};
   tell('Keep building. Keep dreaming.');
 }
 
